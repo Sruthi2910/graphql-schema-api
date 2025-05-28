@@ -51,6 +51,61 @@ export function SchemaViewer({ schema, isLoading, error }: SchemaViewerProps) {
 
   const canDownload = schema !== null && schema.trim() !== "" && !isLoading && !error;
 
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+          <p className="text-lg">Generating schema...</p>
+          <p>This may take a moment.</p>
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <Alert variant="destructive" className="my-auto">
+          <AlertTriangle className="h-5 w-5" />
+          <AlertTitle>Error Generating Schema</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      );
+    }
+
+    if (schema && schema.trim() !== "") {
+      return (
+        <ScrollArea className="flex-grow h-0 rounded-md border bg-muted/30">
+          <pre className="p-4 text-sm font-mono whitespace-pre-wrap break-all">
+            <code>{schema}</code>
+          </pre>
+        </ScrollArea>
+      );
+    }
+    
+    if (schema !== null && schema.trim() === "") {
+      return (
+        <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center p-4">
+          <Info className="h-12 w-12 text-primary mb-4" />
+          <p className="text-lg mb-1">Generated schema is empty.</p>
+          <p className="text-sm">
+            The AI processed the request but did not return any schema content. Try different inputs or be more specific.
+          </p>
+        </div>
+      );
+    }
+
+    // Default case: schema is null (initial state or explicitly cleared)
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center p-4">
+        <Info className="h-12 w-12 text-primary mb-4" />
+        <p className="text-lg mb-1">No schema generated yet.</p>
+        <p className="text-sm">
+          Connect to a data source to see the schema here.
+        </p>
+      </div>
+    );
+  };
+
   return (
     <Card className="h-full flex flex-col">
       <CardHeader>
@@ -58,7 +113,7 @@ export function SchemaViewer({ schema, isLoading, error }: SchemaViewerProps) {
           <div className="flex-grow">
             <CardTitle className="flex items-center gap-2">
               <FileCode className="h-6 w-6" />
-              Generated GraphQL Schema
+              GraphQL Schema
             </CardTitle>
             <CardDescription>
               The AI-generated schema based on your data source.
@@ -77,40 +132,7 @@ export function SchemaViewer({ schema, isLoading, error }: SchemaViewerProps) {
         </div>
       </CardHeader>
       <CardContent className="flex-grow flex flex-col overflow-hidden">
-        {isLoading && (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-            <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-            <p className="text-lg">Generating schema...</p>
-            <p>This may take a moment.</p>
-          </div>
-        )}
-        {error && !isLoading && (
-          <Alert variant="destructive" className="my-auto">
-            <AlertTriangle className="h-5 w-5" />
-            <AlertTitle>Error Generating Schema</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-        {!isLoading && !error && schema && schema.trim() !== "" && (
-          <ScrollArea className="flex-grow h-0 rounded-md border bg-muted/30">
-            <pre className="p-4 text-sm font-mono whitespace-pre-wrap break-all">
-              <code>{schema}</code>
-            </pre>
-          </ScrollArea>
-        )}
-        {!isLoading && !error && (schema === null || schema.trim() === "") && (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center p-4">
-            <Info className="h-12 w-12 text-primary mb-4" />
-            <p className="text-lg mb-1">
-              {schema === null ? "No schema generated yet." : "Generated schema is empty."}
-            </p>
-            <p className="text-sm">
-              {schema === null 
-                ? "Connect to a data source to see the schema here." 
-                : "The AI processed the request but did not return any schema content. Try different inputs or be more specific."}
-            </p>
-          </div>
-        )}
+        {renderContent()}
       </CardContent>
     </Card>
   );

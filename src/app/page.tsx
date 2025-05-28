@@ -32,46 +32,47 @@ export default function GraphQLFactoryPage() {
         objectIdentifier: values.objectIdentifier,
       });
       
-      // Check if schema is a string (even if empty), and examples might exist
       if (result && typeof result.graphqlSchema === 'string') {
         setGeneratedSchema(result.graphqlSchema);
         if (result.exampleQueriesMutations) {
           setExampleQueriesMutations(result.exampleQueriesMutations);
         }
 
-        let toastDescription = "GraphQL schema and example operations generated.";
-        if (!result.graphqlSchema && !result.exampleQueriesMutations) {
-            toastDescription = "Process complete. The AI did not return a schema or examples. This might happen with ambiguous inputs.";
-        } else if (!result.graphqlSchema) {
-            toastDescription = "Example operations generated, but the schema is empty.";
-        } else if (!result.exampleQueriesMutations && result.graphqlSchema) { // Ensure schema is not empty for this message
-            toastDescription = "GraphQL schema generated. No example operations were provided by the AI.";
-        } else if (!result.exampleQueriesMutations && !result.graphqlSchema) {
-            toastDescription = "GraphQL schema generated, but it is empty. No example operations were provided by the AI.";
-        }
+        const hasSchema = result.graphqlSchema && result.graphqlSchema.trim() !== "";
+        const hasExamples = result.exampleQueriesMutations && result.exampleQueriesMutations.trim() !== "";
+        let toastDescription = "";
 
+        if (hasSchema && hasExamples) {
+            toastDescription = "GraphQL schema and example operations generated successfully.";
+        } else if (hasSchema && !hasExamples) {
+            toastDescription = "GraphQL schema generated. No example operations were provided by the AI.";
+        } else if (!hasSchema && hasExamples) {
+            toastDescription = "Example operations generated. The AI did not provide a schema or it was empty.";
+        } else { // !hasSchema && !hasExamples
+            toastDescription = "Process complete. The AI did not return a schema or examples. This might happen with ambiguous inputs.";
+        }
 
         toast({
           title: "Generation Complete",
           description: toastDescription,
         });
         
-        // Switch to API examples tab if they exist and schema also generated or if only examples exist
-        // Prioritize explorer if examples exist, otherwise schema.
-        if (result.exampleQueriesMutations) {
+        // Switch to API examples tab if they exist, otherwise schema tab.
+        if (hasExamples) {
             setActiveTab("explorer");
         } else {
             setActiveTab("schema");
         }
 
       } else {
-        // This case handles if result is falsy, or result.graphqlSchema is not a string (e.g. undefined, null and not caught by the flow's default empty string)
         throw new Error(result ? "AI did not return a valid schema output structure." : "AI did not return any result.");
       }
     } catch (err) {
       console.error("Error generating schema:", err);
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
       setError(`Failed to generate schema: ${errorMessage}`);
+      setGeneratedSchema(null); // Ensure schema is cleared on error
+      setExampleQueriesMutations(null); // Ensure examples are cleared on error
       toast({
         variant: "destructive",
         title: "Schema Generation Failed",
@@ -105,7 +106,7 @@ export default function GraphQLFactoryPage() {
               </TabsContent>
               <TabsContent value="explorer" className="flex-grow">
                 <ApiExplorerPlaceholder 
-                  schemaGenerated={generatedSchema !== null && !error} // True if schema is not null (can be empty string)
+                  schemaGenerated={generatedSchema !== null && generatedSchema.trim() !== "" && !error}
                   exampleCode={exampleQueriesMutations}
                   isLoading={isLoading}
                   error={error}
