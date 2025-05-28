@@ -43,14 +43,12 @@ export function SchemaViewer({
   }, [schema, isEditing]);
 
   const currentDisplaySchema = isEditing ? editedSchemaContent : schema;
-  // For download and enabling edit, we need actual content, not just placeholders
-  const hasActualSchemaForActions = schema !== null && schema.trim() !== "" && !schema.startsWith("#");
-  // For view dialog, we can show placeholders
-  const schemaForViewDialog = currentDisplaySchema || (error ? `Error: ${error}` : "# No schema available.");
+  const hasActualSchemaContent = schema !== null && schema.trim() !== "";
+  const schemaForViewDialog = currentDisplaySchema || (error ? `Error displaying schema: ${error}` : "# No schema available to view.");
 
 
   const handleDownload = () => {
-    if (!hasActualSchemaForActions) {
+    if (!hasActualSchemaContent) {
       toast({
         variant: "destructive",
         title: "Download Failed",
@@ -59,7 +57,7 @@ export function SchemaViewer({
       return;
     }
     try {
-      const blob = new Blob([schema!], { type: 'application/graphql;charset=utf--8' }); // Use original schema for download
+      const blob = new Blob([schema!], { type: 'application/graphql;charset=utf--8' }); 
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = 'schema.graphql';
@@ -82,13 +80,12 @@ export function SchemaViewer({
   };
   
   const handleEdit = () => {
-    // When starting edit, populate with the current schema (which might be null)
     setEditedSchemaContent(schema || ""); 
     setIsEditing(true);
   };
 
   const handleCancelEdit = () => {
-    setEditedSchemaContent(schema || ""); // Revert to original schema
+    setEditedSchemaContent(schema || ""); 
     setIsEditing(false);
   };
 
@@ -139,14 +136,14 @@ export function SchemaViewer({
     }
     
     let placeholderMessage = "Use the form to generate a schema.";
-    if (schema !== null && !error) { // Schema generation has been attempted and no overriding error
-        if (hasActualSchemaForActions) {
+    if (schema !== null && !error) { 
+        if (hasActualSchemaContent) {
             placeholderMessage = "Schema generated. Click 'View Schema' to display, 'Edit Schema' to modify, or 'Download' to save.";
-        } else { // Schema is empty or just comments
+        } else { 
             placeholderMessage = "The AI returned an empty schema. Try adjusting your input or edit the schema manually.";
         }
-    } else if (schema === null && !error && !isLoading) { // Initial state or cleared
-        placeholderMessage = "Your GraphQL schema will appear here once generated. Click 'View Schema' if available.";
+    } else if (schema === null && !error && !isLoading) { 
+        placeholderMessage = "Your GraphQL schema will appear here once generated.";
     }
 
 
@@ -179,7 +176,7 @@ export function SchemaViewer({
                   <Button
                     variant="outline"
                     size="sm"
-                    disabled={isLoading} // Only disable if loading, dialog will show error/empty message
+                    disabled={isLoading || !hasActualSchemaContent}
                     aria-label="View schema"
                   >
                     <Eye className="mr-2 h-4 w-4" />
@@ -207,7 +204,7 @@ export function SchemaViewer({
                 variant="outline"
                 size="sm"
                 onClick={handleEdit}
-                disabled={isLoading || error !== null} // Allow edit even if schema is empty to start from scratch, unless error
+                disabled={isLoading || error !== null} 
                 aria-label="Edit schema"
               >
                 <Pencil className="mr-2 h-4 w-4" />
@@ -242,7 +239,7 @@ export function SchemaViewer({
                 variant="outline"
                 size="sm"
                 onClick={handleDownload}
-                disabled={isLoading || error !== null || !hasActualSchemaForActions} 
+                disabled={isLoading || error !== null || !hasActualSchemaContent} 
                 aria-label="Download schema"
             >
                 <Download className="mr-2 h-4 w-4" />
@@ -257,3 +254,4 @@ export function SchemaViewer({
     </Card>
   );
 }
+
