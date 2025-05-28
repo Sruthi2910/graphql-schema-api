@@ -35,18 +35,22 @@ export function SchemaViewer({
   const [isViewDialogOpen, setIsViewDialogOpen] = React.useState(false);
 
   React.useEffect(() => {
-    if (schema !== null) {
+    if (schema !== null && !isEditing) { // Only update if not currently editing
         setEditedSchemaContent(schema);
-    } else {
+    } else if (schema === null && !isEditing) {
         setEditedSchemaContent(""); 
     }
-  }, [schema]);
+  }, [schema, isEditing]);
 
   const currentDisplaySchema = isEditing ? editedSchemaContent : schema;
-  const hasActualSchemaContent = currentDisplaySchema !== null && currentDisplaySchema.trim() !== "" && !currentDisplaySchema.startsWith("#");
+  // For download and enabling edit, we need actual content, not just placeholders
+  const hasActualSchemaForActions = schema !== null && schema.trim() !== "" && !schema.startsWith("#");
+  // For view dialog, we can show placeholders
+  const schemaForViewDialog = currentDisplaySchema || (error ? `Error: ${error}` : "# No schema available.");
+
 
   const handleDownload = () => {
-    if (!hasActualSchemaContent) {
+    if (!hasActualSchemaForActions) {
       toast({
         variant: "destructive",
         title: "Download Failed",
@@ -55,7 +59,7 @@ export function SchemaViewer({
       return;
     }
     try {
-      const blob = new Blob([currentDisplaySchema!], { type: 'application/graphql;charset=utf-8' });
+      const blob = new Blob([schema!], { type: 'application/graphql;charset=utf--8' }); // Use original schema for download
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = 'schema.graphql';
@@ -78,16 +82,13 @@ export function SchemaViewer({
   };
   
   const handleEdit = () => {
-    if (schema !== null) {
-      setEditedSchemaContent(schema); 
-    }
+    // When starting edit, populate with the current schema (which might be null)
+    setEditedSchemaContent(schema || ""); 
     setIsEditing(true);
   };
 
   const handleCancelEdit = () => {
-    if (schema !== null) {
-      setEditedSchemaContent(schema); 
-    }
+    setEditedSchemaContent(schema || ""); // Revert to original schema
     setIsEditing(false);
   };
 
@@ -136,17 +137,19 @@ export function SchemaViewer({
             />
         );
     }
-
-    // Default placeholder content when not loading, no error, and not editing
+    
     let placeholderMessage = "Use the form to generate a schema.";
-    if (schema !== null) { // Schema generation has been attempted
-        if (hasActualSchemaContent) {
+    if (schema !== null && !error) { // Schema generation has been attempted and no overriding error
+        if (hasActualSchemaForActions) {
             placeholderMessage = "Schema generated. Click 'View Schema' to display, 'Edit Schema' to modify, or 'Download' to save.";
-        } else {
+        } else { // Schema is empty or just comments
             placeholderMessage = "The AI returned an empty schema. Try adjusting your input or edit the schema manually.";
         }
+    } else if (schema === null && !error && !isLoading) { // Initial state or cleared
+        placeholderMessage = "Your GraphQL schema will appear here once generated. Click 'View Schema' if available.";
     }
-    
+
+
     return (
         <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center">
             <FileCode className="h-16 w-16 mb-4 text-gray-400" />
@@ -176,7 +179,7 @@ export function SchemaViewer({
                   <Button
                     variant="outline"
                     size="sm"
-                    disabled={isLoading || error !== null || !hasActualSchemaContent}
+                    disabled={isLoading} // Only disable if loading, dialog will show error/empty message
                     aria-label="View schema"
                   >
                     <Eye className="mr-2 h-4 w-4" />
@@ -185,11 +188,11 @@ export function SchemaViewer({
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[80vh] flex flex-col">
                   <DialogHeader>
-                    <DialogTitle>Generated GraphQL Schema</DialogTitle>
+                    <DialogTitle>GraphQL Schema</DialogTitle>
                   </DialogHeader>
                   <ScrollArea className="flex-grow rounded-md border bg-muted/30 min-h-[300px]">
                     <pre className="p-4 text-sm font-mono whitespace-pre-wrap break-all">
-                      <code>{currentDisplaySchema || "# No schema available."}</code>
+                      <code>{schemaForViewDialog}</code>
                     </pre>
                   </ScrollArea>
                   <DialogClose asChild>
@@ -204,7 +207,7 @@ export function SchemaViewer({
                 variant="outline"
                 size="sm"
                 onClick={handleEdit}
-                disabled={isLoading || error !== null} // Allow edit even if schema is empty to start from scratch
+                disabled={isLoading || error !== null} // Allow edit even if schema is empty to start from scratch, unless error
                 aria-label="Edit schema"
               >
                 <Pencil className="mr-2 h-4 w-4" />
@@ -239,7 +242,7 @@ export function SchemaViewer({
                 variant="outline"
                 size="sm"
                 onClick={handleDownload}
-                disabled={isLoading || error !== null || !hasActualSchemaContent} 
+                disabled={isLoading || error !== null || !hasActualSchemaForActions} 
                 aria-label="Download schema"
             >
                 <Download className="mr-2 h-4 w-4" />
