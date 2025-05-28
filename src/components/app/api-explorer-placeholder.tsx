@@ -21,9 +21,11 @@ export function ApiExplorerPlaceholder({ schemaGenerated, exampleCode, isLoading
   const { toast } = useToast();
   const [isViewDialogOpen, setIsViewDialogOpen] = React.useState(false);
 
-  // For copy and enabling view button if we only want it for *actual* code
-  const hasActualExampleCodeToCopy = exampleCode !== null && exampleCode.trim() !== "" && !exampleCode.startsWith("# Query") && !exampleCode.startsWith("# Mutation") && !exampleCode.startsWith("#");
-  const examplesForViewDialog = exampleCode || (error ? `Error: ${error}` : "# No API examples available.");
+  // Revised: Simpler check for actual content to copy.
+  // If exampleCode has any non-whitespace characters, it's considered copyable.
+  const hasActualExampleCodeToCopy = exampleCode !== null && exampleCode.trim() !== "";
+  
+  const examplesForViewDialog = exampleCode && exampleCode.trim() !== "" ? exampleCode : (error ? `Error: ${error}` : "# No API examples available.");
 
 
   const handleCopy = async () => {
@@ -36,7 +38,8 @@ export function ApiExplorerPlaceholder({ schemaGenerated, exampleCode, isLoading
       return;
     }
     try {
-      await navigator.clipboard.writeText(exampleCode!);
+      // exampleCode is guaranteed to be non-null here if hasActualExampleCodeToCopy is true
+      await navigator.clipboard.writeText(exampleCode!); 
       toast({ title: "Copied!", description: "Example operations copied to clipboard." });
     } catch (err) {
       console.error("Failed to copy examples:", err);
@@ -71,17 +74,13 @@ export function ApiExplorerPlaceholder({ schemaGenerated, exampleCode, isLoading
     }
     
     let placeholderMessage = "API examples will appear here once a GraphQL schema is successfully generated and examples are available.";
-    if (schemaGenerated && !error) { // Schema is generated and no error on examples
-        if (exampleCode !== null && exampleCode.trim() !== "") { // Examples were attempted or exist
-            if (hasActualExampleCodeToCopy) {
-                placeholderMessage = "API examples generated. Click 'View API Examples' to display or 'Copy' them.";
-            } else { // AI returned empty or placeholder examples
-                placeholderMessage = "No specific API examples were generated for the current schema. Try editing the schema and regenerating examples.";
-            }
-        } else if (exampleCode === null && !isLoading) { // After generation attempt, explicitly no examples
-             placeholderMessage = "No API examples were generated for the current schema. This can sometimes happen. Try editing the schema and regenerating examples.";
-        }
-    } else if (!schemaGenerated && !error && !isLoading) { // Before any generation or if schema failed
+    if (schemaGenerated && !error && !isLoading) {
+      if (exampleCode && exampleCode.trim() !== "") { // Check if there's actual content
+        placeholderMessage = "API examples generated. Click 'View API Examples' to display or 'Copy' them.";
+      } else { // Covers exampleCode being null, empty string, or only whitespace
+        placeholderMessage = "No API examples were generated for the current schema. Try editing the schema and regenerating examples.";
+      }
+    } else if (!schemaGenerated && !error && !isLoading) { 
         placeholderMessage = "Generate a schema first to see API examples.";
     }
 
@@ -114,7 +113,7 @@ export function ApiExplorerPlaceholder({ schemaGenerated, exampleCode, isLoading
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={isLoading} // Only disable if loading
+                  disabled={isLoading} 
                   aria-label="View API examples"
                 >
                   <Eye className="mr-2 h-4 w-4" />
