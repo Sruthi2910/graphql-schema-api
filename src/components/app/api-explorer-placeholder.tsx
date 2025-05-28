@@ -4,26 +4,68 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Code2, Loader2, Info, AlertTriangle, FileWarning } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { Code2, Loader2, Info, AlertTriangle, FileWarning, Copy } from "lucide-react";
 
 interface ApiExamplesViewerProps {
-  schemaGenerated: boolean; // True if schema generation was attempted and didn't throw a top-level error
+  schemaGenerated: boolean; 
   exampleCode: string | null;
   isLoading: boolean;
-  error: string | null; // Error from the main page generation process
+  error: string | null; 
 }
 
 export function ApiExplorerPlaceholder({ schemaGenerated, exampleCode, isLoading, error }: ApiExamplesViewerProps) {
+  const { toast } = useToast();
+
+  const handleCopy = async () => {
+    if (!exampleCode || exampleCode.trim() === "" || !navigator.clipboard) {
+      toast({
+        variant: "destructive",
+        title: "Copy Failed",
+        description: !exampleCode || exampleCode.trim() === "" ? "No examples to copy." : "Clipboard API not available.",
+      });
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(exampleCode);
+      toast({ title: "Copied!", description: "Example operations copied to clipboard." });
+    } catch (err) {
+      console.error("Failed to copy examples:", err);
+      toast({
+        variant: "destructive",
+        title: "Copy Failed",
+        description: "Could not copy examples to clipboard.",
+      });
+    }
+  };
+
+  const canCopy = exampleCode !== null && exampleCode.trim() !== "" && !isLoading && !error;
+
   return (
     <Card className="h-full flex flex-col">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Code2 className="h-6 w-6" />
-          Example GraphQL Operations
-        </CardTitle>
-        <CardDescription>
-          Sample queries and mutations based on the generated schema. You can copy these to test your API.
-        </CardDescription>
+        <div className="flex justify-between items-center">
+          <div className="flex-grow">
+            <CardTitle className="flex items-center gap-2">
+              <Code2 className="h-6 w-6" />
+              Example GraphQL Operations
+            </CardTitle>
+            <CardDescription>
+              Sample queries and mutations based on the generated schema.
+            </CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCopy}
+            disabled={!canCopy}
+            aria-label="Copy example operations"
+          >
+            <Copy className="mr-2 h-4 w-4" />
+            Copy
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="flex-grow flex flex-col overflow-hidden">
         {isLoading && (
@@ -34,7 +76,7 @@ export function ApiExplorerPlaceholder({ schemaGenerated, exampleCode, isLoading
           </div>
         )}
 
-        {!isLoading && error && ( /* If there was a general error generating anything */
+        {!isLoading && error && (
           <Alert variant="destructive" className="my-auto">
             <AlertTriangle className="h-5 w-5" />
             <AlertTitle>Error During Generation</AlertTitle>
@@ -43,7 +85,7 @@ export function ApiExplorerPlaceholder({ schemaGenerated, exampleCode, isLoading
           </Alert>
         )}
 
-        {!isLoading && !error && !schemaGenerated && ( /* Initial state, nothing generated yet */
+        {!isLoading && !error && !schemaGenerated && !exampleCode && ( 
            <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg min-h-[300px] bg-muted/30 h-full">
             <Info className="h-16 w-16 text-primary mb-4" />
             <h3 className="text-xl font-semibold mb-2">No Examples Yet</h3>
@@ -53,7 +95,7 @@ export function ApiExplorerPlaceholder({ schemaGenerated, exampleCode, isLoading
           </div>
         )}
 
-        {!isLoading && !error && schemaGenerated && exampleCode && ( /* Success: Schema and examples generated */
+        {!isLoading && !error && exampleCode && exampleCode.trim() !== "" && ( 
           <ScrollArea className="flex-grow h-0 rounded-md border bg-muted/30">
             <pre className="p-4 text-sm font-mono whitespace-pre-wrap break-all">
               <code>{exampleCode}</code>
@@ -61,15 +103,15 @@ export function ApiExplorerPlaceholder({ schemaGenerated, exampleCode, isLoading
           </ScrollArea>
         )}
         
-        {!isLoading && !error && schemaGenerated && !exampleCode && ( /* Schema generated, but no examples returned by AI */
+        {!isLoading && !error && schemaGenerated && (!exampleCode || exampleCode.trim() === "") && ( 
            <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg min-h-[300px] bg-muted/30 h-full">
-            <FileWarning className="h-16 w-16 text-amber-500 mb-4" /> {/* Using a warning icon */}
-            <h3 className="text-xl font-semibold mb-2">Schema Generated, Examples Missing</h3>
+            <FileWarning className="h-16 w-16 text-amber-500 mb-4" />
+            <h3 className="text-xl font-semibold mb-2">No Examples Provided</h3>
             <p className="text-muted-foreground">
-              The GraphQL schema was generated successfully, but the AI did not provide example operations.
+              { schemaGenerated && exampleCode === null ? "The AI did not provide example operations for the generated schema." : "The AI did not provide example operations."}
             </p>
             <p className="text-xs text-muted-foreground mt-2">
-              This can sometimes happen with complex or very generic data source inputs. You can still use the generated schema.
+              This can sometimes happen with complex or very generic data source inputs.
             </p>
           </div>
         )}

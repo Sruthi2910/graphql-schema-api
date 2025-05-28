@@ -5,7 +5,7 @@ import { useState } from "react";
 import { AppHeader } from "@/components/app/app-header";
 import { DataSourceForm, type DataSourceFormValues } from "@/components/app/data-source-form";
 import { SchemaViewer } from "@/components/app/schema-viewer";
-import { ApiExplorerPlaceholder } from "@/components/app/api-explorer-placeholder"; // Will be updated to show examples
+import { ApiExplorerPlaceholder } from "@/components/app/api-explorer-placeholder";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { generateGraphQLSchema, type GenerateGraphQLSchemaOutput } from "@/ai/flows/generate-graphql-schema";
@@ -13,7 +13,7 @@ import { generateGraphQLSchema, type GenerateGraphQLSchemaOutput } from "@/ai/fl
 export default function GraphQLFactoryPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [generatedSchema, setGeneratedSchema] = useState<string | null>(null);
-  const [exampleQueriesMutations, setExampleQueriesMutations] = useState<string | null>(null); // New state for examples
+  const [exampleQueriesMutations, setExampleQueriesMutations] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("schema");
@@ -23,31 +23,50 @@ export default function GraphQLFactoryPage() {
     setIsLoading(true);
     setError(null);
     setGeneratedSchema(null);
-    setExampleQueriesMutations(null); // Reset examples
+    setExampleQueriesMutations(null);
 
     try {
       const result: GenerateGraphQLSchemaOutput = await generateGraphQLSchema({
         dataSourceType: values.dataSourceType,
         connectionString: values.connectionString,
-        objectIdentifier: values.objectIdentifier, // Pass the new value
+        objectIdentifier: values.objectIdentifier,
       });
       
-      if (result && result.graphqlSchema) {
+      // Check if schema is a string (even if empty), and examples might exist
+      if (result && typeof result.graphqlSchema === 'string') {
         setGeneratedSchema(result.graphqlSchema);
         if (result.exampleQueriesMutations) {
           setExampleQueriesMutations(result.exampleQueriesMutations);
         }
+
+        let toastDescription = "GraphQL schema and example operations generated.";
+        if (!result.graphqlSchema && !result.exampleQueriesMutations) {
+            toastDescription = "Process complete. The AI did not return a schema or examples. This might happen with ambiguous inputs.";
+        } else if (!result.graphqlSchema) {
+            toastDescription = "Example operations generated, but the schema is empty.";
+        } else if (!result.exampleQueriesMutations && result.graphqlSchema) { // Ensure schema is not empty for this message
+            toastDescription = "GraphQL schema generated. No example operations were provided by the AI.";
+        } else if (!result.exampleQueriesMutations && !result.graphqlSchema) {
+            toastDescription = "GraphQL schema generated, but it is empty. No example operations were provided by the AI.";
+        }
+
+
         toast({
-          title: "Success!",
-          description: "GraphQL schema and example operations generated.",
+          title: "Generation Complete",
+          description: toastDescription,
         });
-        // Switch to API examples tab if they exist, otherwise schema
-        setActiveTab(result.exampleQueriesMutations ? "explorer" : "schema");
+        
+        // Switch to API examples tab if they exist and schema also generated or if only examples exist
+        // Prioritize explorer if examples exist, otherwise schema.
+        if (result.exampleQueriesMutations) {
+            setActiveTab("explorer");
+        } else {
+            setActiveTab("schema");
+        }
+
       } else {
-        // This case might happen if the AI returns a partially valid object but not the schema itself.
-        // The flow's return type handling should prevent a completely null `result`,
-        // but `result.graphqlSchema` could be empty.
-        throw new Error(result ? "AI did not return a valid schema string." : "AI did not return any result.");
+        // This case handles if result is falsy, or result.graphqlSchema is not a string (e.g. undefined, null and not caught by the flow's default empty string)
+        throw new Error(result ? "AI did not return a valid schema output structure." : "AI did not return any result.");
       }
     } catch (err) {
       console.error("Error generating schema:", err);
@@ -58,7 +77,7 @@ export default function GraphQLFactoryPage() {
         title: "Schema Generation Failed",
         description: errorMessage,
       });
-      setActiveTab("schema"); // Revert to schema tab on error
+      setActiveTab("schema"); 
     } finally {
       setIsLoading(false);
     }
@@ -86,7 +105,7 @@ export default function GraphQLFactoryPage() {
               </TabsContent>
               <TabsContent value="explorer" className="flex-grow">
                 <ApiExplorerPlaceholder 
-                  schemaGenerated={!!generatedSchema && !error} 
+                  schemaGenerated={generatedSchema !== null && !error} // True if schema is not null (can be empty string)
                   exampleCode={exampleQueriesMutations}
                   isLoading={isLoading}
                   error={error}
