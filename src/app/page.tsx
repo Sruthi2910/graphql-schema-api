@@ -97,7 +97,7 @@ export default function GraphQLFactoryPage() {
           <div className="lg:w-3/5 xl:w-2/3 flex-grow flex flex-col">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-grow flex flex-col">
               <TabsList className="grid w-full grid-cols-2 mb-4">
-                <TabsTrigger value="schema">Generated Schema</TabsTrigger>
+                <TabsTrigger value="schema">GraphQL Schema</TabsTrigger>
                 <TabsTrigger value="explorer">API Examples</TabsTrigger>
               </TabsList>
               <TabsContent value="schema" className="flex-grow">
