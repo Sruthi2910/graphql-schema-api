@@ -8,7 +8,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { FileCode, Loader2, AlertTriangle, Download, Pencil, RefreshCcw, Undo } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { FileCode, Loader2, AlertTriangle, Download, Pencil, RefreshCcw, Undo, Eye } from "lucide-react";
 
 interface SchemaViewerProps {
   schema: string | null;
@@ -31,6 +32,7 @@ export function SchemaViewer({
   const { toast } = useToast();
   const [isEditing, setIsEditing] = React.useState(false);
   const [editedSchemaContent, setEditedSchemaContent] = React.useState<string>("");
+  const [isViewDialogOpen, setIsViewDialogOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (schema !== null) {
@@ -40,18 +42,20 @@ export function SchemaViewer({
     }
   }, [schema]);
 
+  const currentDisplaySchema = isEditing ? editedSchemaContent : schema;
+  const hasActualSchemaContent = currentDisplaySchema !== null && currentDisplaySchema.trim() !== "" && !currentDisplaySchema.startsWith("#");
+
   const handleDownload = () => {
-    const contentToDownload = isEditing ? editedSchemaContent : schema;
-    if (!contentToDownload || contentToDownload.trim() === "") {
+    if (!hasActualSchemaContent) {
       toast({
         variant: "destructive",
         title: "Download Failed",
-        description: "No schema content to download.",
+        description: "No actual schema content to download.",
       });
       return;
     }
     try {
-      const blob = new Blob([contentToDownload], { type: 'application/graphql;charset=utf-8' });
+      const blob = new Blob([currentDisplaySchema!], { type: 'application/graphql;charset=utf-8' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = 'schema.graphql';
@@ -100,13 +104,10 @@ export function SchemaViewer({
     setIsEditing(false); 
   };
 
-  const currentDisplaySchema = isEditing ? editedSchemaContent : schema;
-  const canDownload = currentDisplaySchema !== null && currentDisplaySchema.trim() !== "" && !isLoading && !error && !(currentDisplaySchema.startsWith("#")); // Don't allow download of placeholder messages
-
-  const renderContent = () => {
+  const renderCardContent = () => {
     if (isLoading && !isEditing) { 
       return (
-        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+        <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-4">
           <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
           <p className="text-lg">Processing Schema...</p>
           <p>This may take a moment.</p>
@@ -116,7 +117,7 @@ export function SchemaViewer({
 
     if (error && !isEditing) { 
       return (
-        <Alert variant="destructive" className="my-auto">
+        <Alert variant="destructive" className="m-4">
           <AlertTriangle className="h-5 w-5" />
           <AlertTitle>Error Processing Schema</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
@@ -136,45 +137,74 @@ export function SchemaViewer({
         );
     }
 
-    // Default view: display schema or placeholder messages within the code block
-    let codeContent: string;
-    if (schema && schema.trim() !== "") {
-      codeContent = schema;
-    } else if (schema !== null && schema.trim() === "") { 
-      codeContent = `# GraphQL schema is empty.\n# The AI processed the request but returned no schema content.\n# You can try different inputs or use the 'Edit Schema' button to create one manually.`;
-    } else { 
-      codeContent = `# No GraphQL schema has been generated yet.\n# Please use the form on the left to connect to a data source and generate a schema.`;
+    // Default placeholder content when not loading, no error, and not editing
+    let placeholderMessage = "Use the form to generate a schema.";
+    if (schema !== null) { // Schema generation has been attempted
+        if (hasActualSchemaContent) {
+            placeholderMessage = "Schema generated. Click 'View Schema' to display, 'Edit Schema' to modify, or 'Download' to save.";
+        } else {
+            placeholderMessage = "The AI returned an empty schema. Try adjusting your input or edit the schema manually.";
+        }
     }
-
+    
     return (
-      <ScrollArea className="flex-grow h-0 rounded-md border bg-muted/30">
-        <pre className="p-4 text-sm font-mono whitespace-pre-wrap break-all">
-          <code>{codeContent}</code>
-        </pre>
-      </ScrollArea>
+        <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center">
+            <FileCode className="h-16 w-16 mb-4 text-gray-400" />
+            <p className="text-lg font-medium">GraphQL Schema Area</p>
+            <p className="text-sm">{placeholderMessage}</p>
+        </div>
     );
   };
 
   return (
     <Card className="h-full flex flex-col">
       <CardHeader>
-        <div className="flex justify-between items-start">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div className="flex-grow">
             <CardTitle className="flex items-center gap-2">
               <FileCode className="h-6 w-6" />
               GraphQL Schema
             </CardTitle>
             <CardDescription>
-              {isEditing ? "Edit the schema and regenerate API examples." : "The AI-generated or edited schema. Placeholder messages are shown if no schema is available."}
+              {isEditing ? "Edit the schema and regenerate API examples." : "View, edit, or download the GraphQL schema."}
             </CardDescription>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2 items-end sm:items-center">
-            {!isEditing && isEditingAllowed && ( // Show edit button if allowed, even for null/empty schema
+          <div className="flex flex-wrap gap-2 items-center">
+            {!isEditing && (
+              <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={isLoading || error !== null || !hasActualSchemaContent}
+                    aria-label="View schema"
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    View Schema
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[80vh] flex flex-col">
+                  <DialogHeader>
+                    <DialogTitle>Generated GraphQL Schema</DialogTitle>
+                  </DialogHeader>
+                  <ScrollArea className="flex-grow rounded-md border bg-muted/30 min-h-[300px]">
+                    <pre className="p-4 text-sm font-mono whitespace-pre-wrap break-all">
+                      <code>{currentDisplaySchema || "# No schema available."}</code>
+                    </pre>
+                  </ScrollArea>
+                  <DialogClose asChild>
+                    <Button type="button" variant="outline" className="mt-4">Close</Button>
+                  </DialogClose>
+                </DialogContent>
+              </Dialog>
+            )}
+
+            {!isEditing && isEditingAllowed && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleEdit}
-                disabled={isLoading}
+                disabled={isLoading || error !== null} // Allow edit even if schema is empty to start from scratch
                 aria-label="Edit schema"
               >
                 <Pencil className="mr-2 h-4 w-4" />
@@ -191,7 +221,7 @@ export function SchemaViewer({
                   aria-label="Save changes and regenerate API examples"
                 >
                   {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
-                  Save & Regenerate Examples
+                  Save & Regenerate
                 </Button>
                 <Button
                   variant="outline"
@@ -209,7 +239,7 @@ export function SchemaViewer({
                 variant="outline"
                 size="sm"
                 onClick={handleDownload}
-                disabled={!canDownload || isLoading} 
+                disabled={isLoading || error !== null || !hasActualSchemaContent} 
                 aria-label="Download schema"
             >
                 <Download className="mr-2 h-4 w-4" />
@@ -218,8 +248,8 @@ export function SchemaViewer({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex-grow flex flex-col overflow-hidden">
-        {renderContent()}
+      <CardContent className="flex-grow flex flex-col overflow-hidden p-0 sm:p-6 sm:pt-0">
+        {renderCardContent()}
       </CardContent>
     </Card>
   );

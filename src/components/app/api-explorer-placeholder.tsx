@@ -1,12 +1,14 @@
 
 "use client";
 
+import * as React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Code2, Loader2, AlertTriangle, Copy } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { Code2, Loader2, AlertTriangle, Copy, Eye } from "lucide-react";
 
 interface ApiExamplesViewerProps {
   schemaGenerated: boolean; 
@@ -17,18 +19,21 @@ interface ApiExamplesViewerProps {
 
 export function ApiExplorerPlaceholder({ schemaGenerated, exampleCode, isLoading, error }: ApiExamplesViewerProps) {
   const { toast } = useToast();
+  const [isViewDialogOpen, setIsViewDialogOpen] = React.useState(false);
+
+  const hasActualExampleCode = exampleCode !== null && exampleCode.trim() !== "" && !exampleCode.startsWith("#");
 
   const handleCopy = async () => {
-    if (!exampleCode || exampleCode.trim() === "" || exampleCode.startsWith("#") || !navigator.clipboard) {
+    if (!hasActualExampleCode || !navigator.clipboard) {
       toast({
         variant: "destructive",
         title: "Copy Failed",
-        description: (!exampleCode || exampleCode.trim() === "" || exampleCode.startsWith("#")) ? "No actual API examples to copy." : "Clipboard API not available.",
+        description: !hasActualExampleCode ? "No actual API examples to copy." : "Clipboard API not available.",
       });
       return;
     }
     try {
-      await navigator.clipboard.writeText(exampleCode);
+      await navigator.clipboard.writeText(exampleCode!);
       toast({ title: "Copied!", description: "Example operations copied to clipboard." });
     } catch (err) {
       console.error("Failed to copy examples:", err);
@@ -40,14 +45,12 @@ export function ApiExplorerPlaceholder({ schemaGenerated, exampleCode, isLoading
     }
   };
 
-  const canCopy = exampleCode !== null && exampleCode.trim() !== "" && !exampleCode.startsWith("#") && !isLoading && !error;
-
-  const renderContent = () => {
+  const renderCardContent = () => {
     if (isLoading) {
       return (
-        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+        <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-4">
           <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-          <p className="text-lg">Generating schema and examples...</p>
+          <p className="text-lg">Generating API examples...</p>
           <p>This may take a moment.</p>
         </div>
       );
@@ -55,7 +58,7 @@ export function ApiExplorerPlaceholder({ schemaGenerated, exampleCode, isLoading
 
     if (error) {
       return (
-        <Alert variant="destructive" className="my-auto">
+        <Alert variant="destructive" className="m-4">
           <AlertTriangle className="h-5 w-5" />
           <AlertTitle>Error During Generation</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
@@ -63,52 +66,85 @@ export function ApiExplorerPlaceholder({ schemaGenerated, exampleCode, isLoading
         </Alert>
       );
     }
-
-    let codeContent: string;
-    if (exampleCode && exampleCode.trim() !== "" && !exampleCode.startsWith("#")) { // Check if it's actual code
-      codeContent = exampleCode;
-    } else if (schemaGenerated) { 
-      codeContent = `# No API examples were generated for the current schema.\n# This can sometimes happen with complex or very generic schemas.\n# You can try editing the schema and regenerating examples.`;
-    } else { 
-      codeContent = `# API examples will appear here once a GraphQL schema is successfully generated.\n# Please use the form on the left to generate a schema first.`;
+    
+    let placeholderMessage = "Generate a schema to see API examples.";
+    if (schemaGenerated) {
+        if (hasActualExampleCode) {
+            placeholderMessage = "API examples generated. Click 'View API Examples' to display them.";
+        } else if (exampleCode === null && !isLoading) { // After generation attempt
+            placeholderMessage = "No API examples were generated for the current schema. This can sometimes happen. Try editing the schema and regenerating examples.";
+        } else if (exampleCode === "" && !isLoading) {
+            placeholderMessage = "The AI returned empty examples. Try editing the schema and regenerating examples.";
+        }
+    } else if (exampleCode === null && !isLoading && !error) { // Before any generation or if schema failed
+        placeholderMessage = "API examples will appear here once a GraphQL schema is successfully generated and examples are available.";
     }
 
+
     return (
-      <ScrollArea className="flex-grow h-0 rounded-md border bg-muted/30">
-        <pre className="p-4 text-sm font-mono whitespace-pre-wrap break-all">
-          <code>{codeContent}</code>
-        </pre>
-      </ScrollArea>
+        <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center">
+            <Code2 className="h-16 w-16 mb-4 text-gray-400" />
+            <p className="text-lg font-medium">API Examples Area</p>
+            <p className="text-sm">{placeholderMessage}</p>
+        </div>
     );
   };
   
   return (
     <Card className="h-full flex flex-col">
       <CardHeader>
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div className="flex-grow">
             <CardTitle className="flex items-center gap-2">
               <Code2 className="h-6 w-6" />
               API Examples
             </CardTitle>
             <CardDescription>
-              Sample queries and mutations. Placeholders are shown if no examples are available.
+              View sample queries and mutations generated from the schema.
             </CardDescription>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCopy}
-            disabled={!canCopy}
-            aria-label="Copy example operations"
-          >
-            <Copy className="mr-2 h-4 w-4" />
-            Copy
-          </Button>
+          <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isLoading || error !== null || !hasActualExampleCode}
+                aria-label="View API examples"
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                View API Examples
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[80vh] flex flex-col">
+              <DialogHeader>
+                <DialogTitle>Generated API Examples</DialogTitle>
+              </DialogHeader>
+              <ScrollArea className="flex-grow rounded-md border bg-muted/30 min-h-[300px]">
+                <pre className="p-4 text-sm font-mono whitespace-pre-wrap break-all">
+                  <code>{hasActualExampleCode ? exampleCode : "# No API examples available."}</code>
+                </pre>
+              </ScrollArea>
+              <div className="flex justify-end gap-2 mt-4">
+                 <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopy}
+                    disabled={!hasActualExampleCode}
+                    aria-label="Copy example operations"
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy Examples
+                  </Button>
+                <DialogClose asChild>
+                  <Button type="button" variant="outline">Close</Button>
+                </DialogClose>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </CardHeader>
-      <CardContent className="flex-grow flex flex-col overflow-hidden">
-        {renderContent()}
+      <CardContent className="flex-grow flex flex-col overflow-hidden p-0 sm:p-6 sm:pt-0">
+        {renderCardContent()}
       </CardContent>
     </Card>
   );
