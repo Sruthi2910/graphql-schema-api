@@ -8,17 +8,17 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { FileCode, Loader2, AlertTriangle, Info, Download, Pencil, Save, Undo, RefreshCcw } from "lucide-react";
+import { FileCode, Loader2, AlertTriangle, Download, Pencil, RefreshCcw, Undo } from "lucide-react";
 
 interface SchemaViewerProps {
   schema: string | null;
-  isLoading: boolean; // Generic loading state for initial load or regeneration
-  isEditingAllowed: boolean; // To control if edit functionality is available
+  isLoading: boolean; 
+  isEditingAllowed: boolean; 
   onSchemaEditAndRegenerate: (editedSchema: string) => Promise<void>;
   error: string | null;
-  initialDataSourceType: string; // To pass to regeneration
-  initialConnectionString: string; // To pass to regeneration
-  initialObjectIdentifier?: string; // To pass to regeneration
+  initialDataSourceType: string; 
+  initialConnectionString: string; 
+  initialObjectIdentifier?: string; 
 }
 
 export function SchemaViewer({ 
@@ -33,12 +33,10 @@ export function SchemaViewer({
   const [editedSchemaContent, setEditedSchemaContent] = React.useState<string>("");
 
   React.useEffect(() => {
-    // When the schema prop changes (e.g., new generation), update the editor content if not actively editing.
-    // Also, reset if schema becomes null (e.g., form reset before new generation).
     if (schema !== null) {
         setEditedSchemaContent(schema);
     } else {
-        setEditedSchemaContent(""); // Clear editor if schema is nullified
+        setEditedSchemaContent(""); 
     }
   }, [schema]);
 
@@ -77,14 +75,14 @@ export function SchemaViewer({
   
   const handleEdit = () => {
     if (schema !== null) {
-      setEditedSchemaContent(schema); // Load current schema into editor
+      setEditedSchemaContent(schema); 
     }
     setIsEditing(true);
   };
 
   const handleCancelEdit = () => {
     if (schema !== null) {
-      setEditedSchemaContent(schema); // Revert to original schema
+      setEditedSchemaContent(schema); 
     }
     setIsEditing(false);
   };
@@ -99,14 +97,14 @@ export function SchemaViewer({
         return;
     }
     await onSchemaEditAndRegenerate(editedSchemaContent);
-    setIsEditing(false); // Exit edit mode on successful regeneration
+    setIsEditing(false); 
   };
 
   const currentDisplaySchema = isEditing ? editedSchemaContent : schema;
-  const canDownload = currentDisplaySchema !== null && currentDisplaySchema.trim() !== "" && !isLoading && !error;
+  const canDownload = currentDisplaySchema !== null && currentDisplaySchema.trim() !== "" && !isLoading && !error && !(currentDisplaySchema.startsWith("#")); // Don't allow download of placeholder messages
 
   const renderContent = () => {
-    if (isLoading && !isEditing) { // Show main loader only if not in edit mode (regeneration loading is handled by disabling buttons)
+    if (isLoading && !isEditing) { 
       return (
         <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
           <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -116,7 +114,7 @@ export function SchemaViewer({
       );
     }
 
-    if (error && !isEditing) { // Show error only if not in edit mode
+    if (error && !isEditing) { 
       return (
         <Alert variant="destructive" className="my-auto">
           <AlertTriangle className="h-5 w-5" />
@@ -133,42 +131,27 @@ export function SchemaViewer({
                 onChange={(e) => setEditedSchemaContent(e.target.value)}
                 className="flex-grow h-full font-mono text-sm resize-none min-h-[300px] lg:min-h-0"
                 placeholder="Enter or paste your GraphQL schema here..."
-                disabled={isLoading} // Disable textarea during regeneration
+                disabled={isLoading} 
             />
         );
     }
 
+    // Default view: display schema or placeholder messages within the code block
+    let codeContent: string;
     if (schema && schema.trim() !== "") {
-      return (
-        <ScrollArea className="flex-grow h-0 rounded-md border bg-muted/30">
-          <pre className="p-4 text-sm font-mono whitespace-pre-wrap break-all">
-            <code>{schema}</code>
-          </pre>
-        </ScrollArea>
-      );
-    }
-    
-    if (schema !== null && schema.trim() === "") {
-      return (
-        <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center p-4">
-          <Info className="h-12 w-12 text-primary mb-4" />
-          <p className="text-lg mb-1">Generated schema is empty.</p>
-          <p className="text-sm">
-            The AI processed the request but did not return any schema content. Try different inputs or be more specific. You can also manually enter a schema using the 'Edit' button.
-          </p>
-        </div>
-      );
+      codeContent = schema;
+    } else if (schema !== null && schema.trim() === "") { 
+      codeContent = `# GraphQL schema is empty.\n# The AI processed the request but returned no schema content.\n# You can try different inputs or use the 'Edit Schema' button to create one manually.`;
+    } else { 
+      codeContent = `# No GraphQL schema has been generated yet.\n# Please use the form on the left to connect to a data source and generate a schema.`;
     }
 
-    // Default case: schema is null (initial state or explicitly cleared)
     return (
-      <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center p-4">
-        <Info className="h-12 w-12 text-primary mb-4" />
-        <p className="text-lg mb-1">No schema generated yet.</p>
-        <p className="text-sm">
-          Connect to a data source to see the schema here, or edit to paste your own.
-        </p>
-      </div>
+      <ScrollArea className="flex-grow h-0 rounded-md border bg-muted/30">
+        <pre className="p-4 text-sm font-mono whitespace-pre-wrap break-all">
+          <code>{codeContent}</code>
+        </pre>
+      </ScrollArea>
     );
   };
 
@@ -182,11 +165,11 @@ export function SchemaViewer({
               GraphQL Schema
             </CardTitle>
             <CardDescription>
-              {isEditing ? "Edit the schema and regenerate API examples." : "The AI-generated or edited schema."}
+              {isEditing ? "Edit the schema and regenerate API examples." : "The AI-generated or edited schema. Placeholder messages are shown if no schema is available."}
             </CardDescription>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 items-end sm:items-center">
-            {!isEditing && isEditingAllowed && schema !== null && (
+            {!isEditing && isEditingAllowed && ( // Show edit button if allowed, even for null/empty schema
               <Button
                 variant="outline"
                 size="sm"
