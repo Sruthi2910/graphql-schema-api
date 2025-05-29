@@ -9,7 +9,7 @@ import { Toaster } from "@/components/ui/toaster";
 // const geistMono = GeistMono({ variable: '--font-geist-mono' });
 
 export const metadata: Metadata = {
-  title: 'GraphQL Factory',
+  title: 'GraphQL Generator',
   description: 'Generate GraphQL schemas and APIs from your data sources.',
 };
 
